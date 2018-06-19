@@ -73,13 +73,18 @@ type Parser struct {
 	CloseByte byte
 }
 
-// Expand expands an input string using shell-like expansions <lead>VAR, <lead><open>VAR<close>,
-// <lead><open>VAR:-if_undefined<close>, and <lead><open>VAR:+if_defined<close> and returns the
-// result of the expansions.  If Sco is true, <lead>VAR expansions are ignored.
+// Expand expands an input string using shell-like expansions $VAR, ${VAR},
+// ${VAR:-if_undefined}, and ${VAR:+if_defined} and returns the
+// result of the expansions.
 //
-// Cases of "<lead>VAR" and "<lead>{VAR}" are replaced with empty strings if VAR is not defined.
-// "<lead>{VAR:-if_undefined}" replaces VAR with the text "if_undefined" if VAR is not defined.
-// "<lead>{VAR:+if_defined}" replaces VAR with the text "if_defined" if VAR is defined.
+// Cases of "$VAR" and "${VAR}" are replaced with empty strings if VAR is not defined.
+// "${VAR:-if_undefined}" replaces VAR with the text "if_undefined" if VAR is not defined.
+// "${VAR:+if_defined}" replaces VAR with the text "if_defined" if VAR is defined.
+//
+// If ScopedOnly is true, $VAR expansions are ignored.
+//
+// In the above syntax examples, the "${}" characters are set by the Parser's LeadByte, OpenByte,
+// and CloseByte fields.
 func (p *Parser) Expand(in string, fn LookupFunc) string {
 	var buf bytes.Buffer
 	buf.Grow(len(in) * 2)
