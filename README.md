@@ -1,5 +1,8 @@
 expand
 ===
+[![GoDoc](https://godoc.org/go.spiff.io/expand?status.svg)](https://godoc.org/go.spiff.io/expand)
+[![Build Status](https://travis-ci.org/nilium/expand.svg?branch=master)](https://travis-ci.org/nilium/expand)
+[![codecov](https://codecov.io/gh/nilium/expand/branch/master/graph/badge.svg)](https://codecov.io/gh/nilium/expand)
 
 	$ go get -u go.spiff.io/expand
 
