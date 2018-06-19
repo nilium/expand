@@ -1,6 +1,10 @@
 package expand // import "go.spiff.io/expand"
 
-import "testing"
+import (
+	"runtime"
+	"strconv"
+	"testing"
+)
 
 func TestExpansions(t *testing.T) {
 	lookup := func(key string) (value string, ok bool) {
@@ -317,4 +321,55 @@ func TestGetFunc(t *testing.T) {
 	if got != want || gotOK != wantOK {
 		t.Errorf("GetFunc(-> value) = %q, %t; want %q, %t", got, gotOK, want, wantOK)
 	}
+}
+
+func TestCrashExpansion(t *testing.T) {
+	// The following cases were generated with go-fuzz and produce panics.
+	// In all cases, the following strings should expand to themselves.
+	cases := []string{
+		"${0:",
+		"${0:+${0:",
+		"${0:+${0:+${0:+${0:+",
+		"${0:+${0:+${0:+${0:+${0:+",
+		"${0:-${0:-${0:-",
+		"${0:-${0:-${0:-${0:",
+		"${0:-${0:-${0:-${0:-${0:",
+		"${0:-${0:-${0:-${0:-${0:-${0:",
+		"${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-",
+		"${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:",
+		"${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-",
+		"${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:",
+		"${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:-${0:",
+		"${0:-${0:-${0:/${0:-${0:-${0:-",
+		"${0:-${0:-${0:/${0:-${0:-${0:-${0:",
+		"${0:-${0:-${0:/${0:-${0:-${0:-${0:-",
+		"${0:-${0:-${0:/${0:-${0:-${0:-${0:/${0:",
+		"${0:-${0:-${0:/${0:-${0:-${0:-${0:/${0:-",
+		"${0:-${0:-${0:/${0:-${0:-${0:-${0:/${0:-${0:",
+		"${0:/",
+		"${0:/${0:/",
+		"${0:/${0:/${0:",
+	}
+
+	nop := func(string) (string, bool) { return "", false }
+
+	for i, in := range cases {
+		in := in
+		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
+			defer func() {
+				if rc := recover(); rc != nil {
+					t.Errorf("panic: %v\n%s", rc, stack())
+				}
+			}()
+			if got := Expand(in, nop); got != in {
+				t.Errorf("Expand(%q) = %q; want %q", in, got, in)
+			}
+		})
+	}
+}
+
+// stack returns up to 1024 bytes of the calling goroutine's stack trace using runtime.Stack.
+func stack() []byte {
+	var buf [1024]byte
+	return buf[:runtime.Stack(buf[:], false)]
 }
