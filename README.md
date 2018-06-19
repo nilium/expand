@@ -80,8 +80,8 @@ import (
 )
 
 func main() {
-	fmt.Println(parser.Expand("Hello, ${NAME:-World}.", os.LookupEnv))
-	fmt.Println(parser.Expand("This is in ${ENVIRON:-testing}.", os.LookupEnv))
+	fmt.Println(expand.Expand("Hello, ${NAME:-World}.", os.LookupEnv))
+	fmt.Println(expand.Expand("This is in ${ENVIRON:-testing}.", os.LookupEnv))
 }
 ```
 
