@@ -224,8 +224,11 @@ reset:
 				kind    = exVariable
 				varname string
 			)
+
 			i++
-			if head == tail { // No variable name
+			if i == len(in) {
+				goto done
+			} else if head == tail { // No variable name
 				goto reset
 			}
 
@@ -248,7 +251,9 @@ reset:
 				consume(&expansion{value: varname, kind: kind, children: []*expansion{back}})
 			} else {
 				consume(&expansion{value: in[:tail+2], kind: exPrefix})
-				consume(back)
+				if back != nil {
+					consume(back)
+				}
 			}
 
 			goto reset
