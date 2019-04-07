@@ -19,8 +19,10 @@ Accepted expansions are:
 | -------------- | ----
 | `$VAR`         | Expand the name VAR (allowed if `Parser.ScopedOnly=false`).
 | `${VAR}`       | Expand the name VAR.
-| `${VAR:-DEF}`  | Expand the name VAR. If VAR is undefined, expand to DEF.
-| `${VAR:+DEF}`  | If VAR is defined, expand to DEF, otherwise nothing.
+| `${VAR:-DEF}`  | Expand the name VAR. If VAR is undefined or empty, expand to DEF.
+| `${VAR-DEF}`   | Expand the name VAR. If VAR is undefined, expand to DEF.
+| `${VAR:+DEF}`  | If VAR is defined and non-empty, expand to DEF, otherwise nothing.
+| `${VAR+DEF}`   | If VAR is defined, expand to DEF, otherwise nothing.
 | `${VAR:/DEF}`  | If VAR is undefined, expand to DEF, otherwise nothing.
 
 The '$', '{', and '}' in the above expansions are configurable. If a backslash
