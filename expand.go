@@ -8,8 +8,10 @@
 //      Syntax          Kind
 //      $VAR            Expand the name VAR (ScopedOnly=false).
 //      ${VAR}          Expand the name VAR.
-//      ${VAR:-DEF}     Expand the name VAR. If VAR is undefined, expand to DEF.
-//      ${VAR:+DEF}     If VAR is defined, expand to DEF, otherwise nothing.
+//      ${VAR:-DEF}     Expand the name VAR. If VAR is undefined or empty, expand to DEF.
+//      ${VAR-DEF}      Expand the name VAR. If VAR is undefined, expand to DEF.
+//      ${VAR:+DEF}     If VAR is defined and nonempty, expand to DEF, otherwise nothing.
+//      ${VAR+DEF}      If VAR is defined, expand to DEF.
 //      ${VAR:/DEF}     If VAR is undefined, expand to DEF, otherwise nothing.
 //
 // Again, the '$', '{', and '}' in the above expansions are configurable. If a backslash or '$' is
@@ -47,11 +49,10 @@ func GetFunc(fn func(string) string) LookupFunc {
 }
 
 // Expand expands an input string using shell-like expansions $VAR, ${VAR}, ${VAR:-if_undefined}, and
-// ${VAR:+if_defined} and returns the result of the expansions. This uses default Parser settings.
+// ${VAR:+if_defined} and returns the result of the expansions.
+// Expand uses default Parser settings.
 //
-// Cases of "$VAR" and "${VAR}" are replaced with empty strings if VAR is not defined.
-// "${VAR:-if_undefined}" replaces VAR with the text "if_undefined" if VAR is not defined.
-// "${VAR:+if_defined}" replaces VAR with the text "if_defined" if VAR is defined.
+// See the package doc for the full set of supported expansions.
 func Expand(in string, fn LookupFunc) string {
 	return (*Parser)(nil).Expand(in, fn)
 }
@@ -77,9 +78,7 @@ type Parser struct {
 // ${VAR:-if_undefined}, and ${VAR:+if_defined} and returns the
 // result of the expansions.
 //
-// Cases of "$VAR" and "${VAR}" are replaced with empty strings if VAR is not defined.
-// "${VAR:-if_undefined}" replaces VAR with the text "if_undefined" if VAR is not defined.
-// "${VAR:+if_defined}" replaces VAR with the text "if_defined" if VAR is defined.
+// See the package doc for the full set of supported expansions.
 //
 // If ScopedOnly is true, $VAR expansions are ignored.
 //
@@ -216,7 +215,7 @@ reset:
 			}
 			goto reset
 
-		case ':':
+		case ':', '-', '+':
 			var (
 				n       int
 				back    *expansion
@@ -233,17 +232,26 @@ reset:
 			}
 
 			varname = strings.TrimSpace(in[head:tail])
-			switch in[i] {
-			case '-':
-			case '+':
-				kind = exDefined
-			case '/':
+
+			if c == '-' {
 				kind = exUndefined
-			default:
+				goto parse
+			} else if c == '+' {
+				kind = exDefined
+				goto parse
+			} else if n := in[i]; n == '-' {
+				// Default: kind = exVariable
+			} else if n == '+' {
+				kind = exDefinedNotEmpty
+			} else if n == '/' { // Maintained for backwards compatibility
+				kind = exUndefinedTest
+			} else {
 				goto reset
 			}
 
 			i++
+
+		parse:
 			n, back = p.parse(in[i:], rune(closeChar))
 			i += n
 			if i < len(in) && in[i] == closeChar {
@@ -286,10 +294,12 @@ type expansion struct {
 type exKind int
 
 const (
-	exPrefix    exKind = iota // Literal text
-	exVariable                // $VAR ${VAR} ${VAR:-UNDEFINED TEXT}
-	exDefined                 // ${VAR:+DEFINED TEXT}   (if undefined, expansion is empty)
-	exUndefined               // ${VAR:?UNDEFINED TEXT} (if defined, expansion is empty)
+	exPrefix          exKind = iota // Literal text
+	exVariable                      // $VAR ${VAR} ${VAR:-RHS} -> Expand VAR if defined and non-empty, RHS otherwise.
+	exDefined                       // ${VAR+RHS}   -> Expand to RHS if VAR is defined.
+	exDefinedNotEmpty               // ${VAR:+RHS}  -> Expand to RHS if VAR is defined and non-empty.
+	exUndefinedTest                 // ${VAR:/RHS}  -> Expand to RHS if VAR is undefined.
+	exUndefined                     // ${VAR-RHS}   -> Expand VAR if defined, RHS otherwise.
 )
 
 func (e *expansion) expand(w *bytes.Buffer, fn LookupFunc) {
@@ -298,19 +308,34 @@ func (e *expansion) expand(w *bytes.Buffer, fn LookupFunc) {
 	}
 
 	switch e.kind {
-	case exPrefix:
+	case exPrefix: // Literal text
 		if v := e.value; v != "" {
 			w.WriteString(v)
 		}
-	case exVariable:
+	case exVariable: // $VAR ${VAR} ${VAR:-}
+		if v, ok := fn(e.value); ok {
+			if v != "" {
+				w.WriteString(v)
+				return
+			}
+		}
+	case exDefined: // ${VAR+}
+		if _, ok := fn(e.value); !ok {
+			return
+		}
+	case exDefinedNotEmpty: // ${VAR:+}
+		if v, ok := fn(e.value); !ok || v == "" {
+			return
+		}
+	case exUndefinedTest: // ${VAR:/}
+		if _, ok := fn(e.value); ok {
+			return
+		}
+	case exUndefined: // ${VAR-}
 		if v, ok := fn(e.value); ok {
 			if v != "" {
 				w.WriteString(v)
 			}
-			return
-		}
-	case exDefined, exUndefined:
-		if _, ok := fn(e.value); ok != (e.kind == exDefined) {
 			return
 		}
 	}

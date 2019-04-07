@@ -8,6 +8,14 @@ import (
 
 func TestExpansions(t *testing.T) {
 	lookup := func(key string) (value string, ok bool) {
+		switch key {
+		case "empty":
+			return "", true
+		case "none":
+			return "", false
+		default:
+			return "text", true
+		}
 		return "text", key != "none"
 	}
 
@@ -77,6 +85,16 @@ func TestExpansions(t *testing.T) {
 			"EscapeDelimiterBracedDefined",
 			"$${key:+defined}${key:+defined}",
 			"${key:+defined}defined",
+		},
+		{
+			"ExpandUndefinedOnly",
+			"${none-not a variable}",
+			"not a variable",
+		},
+		{
+			"ExpandDefinedOnly",
+			"${key+x} ${empty+empty var} ${none+y}",
+			"x empty var ",
 		},
 		{
 			"NestedInterpolations",
